@@ -1,0 +1,1177 @@
+#together
+#unidade
+#embuscadeevolução
+#legacy
+#
+
+-> Criando o projeto
+
+No terminal dentro do diretorio do projeto executar
+
+- yarn init -y
+
+-> Instalando as dependencias
+
+No terminal executar
+
+- yarn add typescript -D
+
+Inciando o typescript, no terminal executar "yarn tsc --init"
+No arquivo tsconfig mudar o strict para false
+No terminal executar "yarn tsc"
+
+-> Instalando o express
+
+No terminal executar
+
+- yarn add express
+- yarn add @types/express -D
+
+Deletar os dois arquivos index.js e index.ts, criar o diretorio src e dentro dele criar o arquivo server.ts 
+
+No arquivo server.ts adicionar as linhas de codigo:
+
+    import express from 'express'
+
+    // Chamando o express
+    const app = express()
+
+    // Abrindo a porta 3000 com o metodo listen
+    app.listen(3000, () => console.log("Server online!🚀"))
+
+Para testar, rodar novamente no terminal "yarn tsc" e logo depois "node src/server.js"
+
+Depois de testar, apagar o arquivo server.js
+
+-> Instalando dependencia de compatibilidade ts com node
+
+No terminal instalar o modulo ts-node
+
+- yarn add ts-node-dev -D
+
+No arquivo package.json, apois a linha license, adicionar a linha de script com os comandos:
+
+    "scrits": {
+        "dev": "ts-node-dev src/server.ts"
+    },
+
+Agora sempre que for necessario iniciar o server, rodar o camando "yarn dev" e nao mais "yarn tsc" e "node src/server.js"
+
+-> Criando a primeira rota
+
+No arquivo server.ts após a linha "const app" adicionar a linha:
+
+    // app.get(nome da rota, (requisicao - informação entrando, resposta - informação saindo) => {})
+    app.get("/test", (request, response) => {
+        return response.send("Ola Matheus")
+})
+
+-> Instalando typeorm e o sqlite
+
+No terminal executar:
+
+- yarn add typeorm reflect-metadata sqlite3
+
+No arquivo server.ts apagar os metodos get e post utilizados para exemplo de teste, importar o reflect metadata
+
+    import "reflext-metadata"
+
+Na raiz do projeto, criar o arquivo ormconfig.json e inserir as linhas de codigo 
+
+    {
+    "type": "sqlite",
+    "database": "src/database/database.sqlite"
+    }
+
+No diretorio src criar o diretorio database e dentro dele criar o arquivo index.ts e inserir os codigos 
+
+    import { createConnection } from 'typeorm'
+
+    createConnection()
+
+No arquivo server.ts apos a linha "const app = express()" fazer o import da conexao do banco de dados:
+
+    import './database'
+
+Logo depois rodar no terminal o yarn dev para ver se esta tudo ok
+
+-> Configurando as migrations
+
+No arquivo ormconfig, após a linha database, inserir a linha:
+
+    "cli": {
+        "migrationsDir": "src/database/migrations"
+    }
+
+E no arquivo package.json na linha de scripts apos a linha dev, iserir a linha:
+
+    "typeorm": "ts-node-dev ./node_modules/typeorm/cli.js"
+
+Para conferir se esta tudo ok rodar no terminal yarn typeorm --help para aparecer os comandos possiveis do cli 
+
+-> Criando a primeira entidade da migration 
+
+No terminal executar:
+
+- yarn typeorm migration:create -n CreateUsers
+
+O arquivo CreateUsers dentro do diretorio migrations contem todo o comando pré preparado para manipular o banco de dados 
+
+Apos a linha public async up inserir as linhas para criação do banco de dados e das tabelas:
+
+    await queryRunner.createTable(
+            new Table({
+                name: "users",
+                columns: [
+                    {
+                        name: "id",
+                        type: "uuid",
+                        isPrimary: true
+                    },
+                    {
+                        name: "name",
+                        type: "varchar",
+
+                    },
+                    {
+                        name: "email",
+                        type: "varchar"
+                    },
+                    {
+                        name: "admin",
+                        type: "boolean",
+                        default: false
+                    },
+                    {
+                        name: "created_at",
+                        type: "timestamp",
+                        default: "now()"
+                    },
+                    {
+                        name: "updated_at",
+                        type: "timestamp",
+                        default: "now()"
+                    }
+                ]
+            })
+        )
+    
+E na linha apos a linha async down:
+
+    await queryRunner.dropTable("users")
+
+Para poder rodar a migreation e criar o banco de dados, antes, no arquivo ormconfig, apos a linha database inserir:
+
+    "migrations": ["src/database/migrations/*.ts"],
+    "entities" : ["src/entities/*.ts"],
+
+No terminal rodar o comando:
+
+- yarn typeorm migration:run
+
+-> Criação da primeira entidade
+
+No arquivo ormconfig apos a linha migrationsDir inserir a linha 
+
+    "entitiesDir": "src/entities"
+
+no terminal, rodar o comando para criar a entidade de usuario 
+
+- yarn typeorm entity:create -n User
+
+No arquivo ts.config, descomentar as duas linhas sobre decorators e a linha "strictPropertyInitialization"
+colocar como false 
+
+No arquivo User.ts na linha Entity() colocar nos parenteses o parametro nome da tabela, nesse caso "users" 
+Dentro de "class User" adicionar:
+
+    id: string
+    name: string
+    email: string
+    admin: boolean
+    created_at: Date
+    updated_at: Date
+
+E para cada campo desse adicionar o seu decorator e no "id" adicionar o readyonly, ficando assim:
+
+    @PrimaryColumn()
+    readonly id: string
+
+    @Column()
+    name: string
+    
+    @Column()
+    email: string
+    
+    @Column()
+    admin: boolean
+    
+    @CreateDateColumn()
+    created_at: Date
+    
+    @UpdateDateColumn()
+    updated_at: Date
+
+Instalar a biblioteca uuid e seus tipos:
+
+- yarn add uuid @types/uuid
+
+No arquivo User.ts importar o uuid:
+
+    import { v4 as uuid} from 'uuid'
+
+Apos a linha updated_at, criaro constructor para quando houver cadastro de um usuario:
+
+    constructor() {
+        if(!this.id) {
+            this.id = uuid()
+        }
+    }
+
+-> Criando os repositories
+
+No diretorio src criar o diretorio repositories e dentro dele criar o primeiro arquivo de repositorio
+o repositorio de usuarios UserRepositories.ts e inserir as linhas:
+
+    import { EntityRepository, Repository } from 'typeorm'
+    import { User } from '../entities/User'
+
+    @EntityRepository(User)
+    class UsersRepositories extends Repository<User> {
+
+    }
+
+    export { UsersRepositories }
+
+-> Criando os services 
+
+No diretorio src criar o diretorio services e dentro dele o arquivo CreateUserService.ts e inserir as linhas 
+
+    import { getCustomRepository } from 'typeorm'
+    import { UsersRepositories } from "../repositories/UsersRepositories"
+
+    interface IUserRequest{
+    name: string
+    email: string
+    admin?: boolean
+    }
+
+    class CreateUserService {
+        
+        async execute({name, email, admin} : IUserRequest) {
+            const UsersReposity = getCustomRepository(UsersRepositories)
+
+            // * Verificando se o email esta preenchido
+            if (!email) {
+                throw new Error ("Email incorrect")
+            }
+
+            // * Tratando se ja existe um usuario com esse email
+            const userAlreadyExists = await UsersReposity.findOne({
+                email,
+            })
+
+            if (userAlreadyExists) {
+                throw new Error("User already exists")
+                
+            }
+
+            // * Criando um novo usuario com as determinadas informações
+            const user = UsersReposity.create({
+                name,
+                email,
+                admin
+            })
+
+            // * Salvando esse usuario que foi criado
+            await UsersReposity.save(user)
+
+            return user
+
+        }
+    }
+
+    export { CreateUserService }
+
+
+-> Criando os controllers e o primeiro controller
+
+No diretorio src criar o diretorio controllers e dentro dele criar o arquivo CreateUserController.ts e inserir as linhas 
+
+    import { Request, Response } from 'express'
+    import { CreateUserService } from '../services/CreateUserService'
+
+    class CreateUserController {
+        async handle(request : Request, response: Response) {
+            const { name, email, admin } = request.body
+
+            const createUserService = new CreateUserService()
+
+            const user = await createUserService.execute({name, email, admin})
+
+            return response.json(user)
+        }
+    }
+
+    export { CreateUserController }
+
+-> Criando o arquivo proprio das rotas 
+
+No diretorio src criar o arquivo routes.ts e dentro dele inserir as linhas: 
+
+    // importando o modulo de rotas e o controller de usuario
+    import { Router } from 'express'
+    import { CreateUserController } from './controllers/CreateUserController'
+
+    // invocando o mosdulo de rotas
+    const router = Router()
+
+    // invocando o controller do usuario
+    const createUserController = new CreateUserController()
+
+    /* criando a rota post para criacao de usuario passando como paramentro request o metodo handle 
+    do controller de usuario que contem as informações do usuario */
+    router.post('/users', createUserController.handle)
+
+    export { router }
+
+E no arquivo server.ts importar o router: 
+
+    import { router } from './routes'
+
+Chamar as rotas e configurando a rota para receber requisiçoes em formato json 
+
+    // configurando a rota para receber requisiçoes em formato json
+    app.use(express.json())
+
+    // chamando as rotas de dentro do routes
+    app.use(router)
+
+-> Tratando melhor o erro de criação de usuario com emal repetido 
+    -> Criando um midware para tratar o erro 
+
+No arquivo server.ts, apos a linha app.use(router) inserir a linha: 
+
+    // Criando middware para tratativa de erro (O controller nao mais trata o erro e sim o servidor)
+    app.use((err: Error, request: Request, response: Response, next: NextFunction) => {
+        if (err instanceof Error) {
+            return response.status(400).json({
+                error: err.message
+            })
+        }
+
+        return response.status(500).json({
+            status: "error",
+            message: "Internal server error"
+        })
+    })
+
+No terminal, rodar o comando: 
+
+- yarn add express-async-errors
+
+No aruquivo server.ts importar o async errors APÓS a importação do express
+
+    import "express-async-errors"
+
+-> Criando a estrutura de tags 
+
+No terminal rodar o comando da migration: 
+
+- yarn typeorm migration:create -n CreateTags
+
+No arquivo de migration das tags fazer a mesma coisa que foi feita no de users 
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.createTable(
+            new Table({
+                name: "tags",
+                columns: [
+                    {
+                        name: "id",
+                        type: "uuid",
+                        isPrimary: true
+                    },
+                    {
+                        name: "name",
+                        type: "varchar"
+                    },
+                    {
+                        name: "created_at",
+                        type: "timestamp",
+                        default: "now()"
+                    },
+                    {
+                        name: "updated_at",
+                        type: "timestamp",
+                        default: "now()"
+                    }
+                ]
+            })
+        )
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.dropTable("tags")
+    }
+
+No terminal rodar:
+
+- yarn typeorm migration:run
+
+-> Criando a entity de tags
+
+No diretorio entities criar o arquivo Tags.ts e inserir as mesmas linhas igual no entity de user 
+
+    import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm'
+    import { v4 as uuid } from 'uuid'
+
+    @Entity("tags")
+    class Tag {
+        @PrimaryColumn()
+        readonly id: string
+
+        @Column()
+        name: string
+        
+        @CreateDateColumn()
+        created_at: Date
+        
+        @UpdateDateColumn()
+        updated_at: Date
+
+        constructor() {
+            if(!this.id) {
+                this.id = uuid()
+            }
+        }
+
+    }
+
+    export { Tag }
+
+-> Criando o repositorie de tags  
+
+No diretorio repositories criar o arquivo TagsRepositories.ts e inserir as linhas: 
+
+    import { EntityRepository, Repository } from 'typeorm'
+    import { Tag } from "../entities/Tag"
+
+    @EntityRepository(Tag)
+    class TagsRepositories extends Repository<Tag> {
+
+    }
+
+    export { TagsRepositories }
+
+-> Criando o service de tags 
+
+No diretorio de services criar o arquivo CreateTagServices.ts e inserir as linhas 
+
+    import { getCustomRepository } from "typeorm"
+    import { TagsRepositories } from "../repositories/TagsRepositories"
+
+    class CreateTagService {
+        async execute(name: string) {
+            const tagsRepositories = getCustomRepository(TagsRepositories)
+
+            if (!name) {
+                throw new Error("Incorrect name!")
+            }
+
+            // ! Select * from tags where name = 'name'
+            const tagAlreadyExists = await tagsRepositories.findOne({
+                name
+            })
+
+            if (tagAlreadyExists) {
+                throw new Error("Tag already exists!")
+            }
+
+            const tag = tagsRepositories.create({
+                name
+            })
+
+            await tagsRepositories.save(tag)
+
+            return tag
+        }
+    }
+
+    export { CreateTagService }
+
+-> Criar o controller da tag
+
+No diretorio controllers criar o arquivo CreateTagController.ts e inserir as linhas: 
+
+    import { CreateTagService } from "../services/CreateTagServices"
+    import { Request, Response } from 'express'
+
+    class CreateTagController {
+        async handle(request: Request, response: Response) {
+            const { name } = request.body
+            const createTagService = new CreateTagService()
+            
+            const tag = await createTagService.execute(name)
+
+            return response.json(tag)
+        }    
+    }
+
+    export { CreateTagController }
+
+No Arquivo de rotas importar o controller de tags
+
+    import { CreateTagController } from './controllers/CreateTagController'
+
+Invocar o controller no arquivo de rotas 
+
+    const createTagController = new CreateTagController()
+
+Criar a rota e passar o controller nele
+
+    router.post('/tags', createTagController.handle)
+
+-> Criando middlewares 
+    -> Criando o middleware de autenticação do usuario 
+
+No direotorio src criar o diretorio middlewares e dentro dele criar o arquivo ensureAdmin.ts e inserir as linhas 
+
+    import { Request, Response, NextFunction } from 'express'
+
+export function ensureAdmin(request: Request, response: Response, next: NextFunction) {
+    const admin = true 
+    
+    if(admin) {
+        return next()
+    } 
+
+    return response.status(401).json({
+        error: "Unauthorized",
+    })
+}
+
+No arquivo de rotas, importar o middleware de autenticação do usuario 
+
+    import { ensureAdmin } from './middlewares/ensureAdmin'
+
+Passar na rota de tags, entre o caminho da rota e a funcao principal, o middleware, ficando assim
+
+    router.post('/tags', ensureAdmin, createTagController.handle)
+
+-> Criptografando um campo de senha no banco de dados 
+
+No terminal instalar: 
+
+- yarn add bcryptjs
+- yarn add @types/bcryptjs -D
+
+No arquivo CreateUserService importar o bcrypt 
+
+    import { hash } from 'bcryptjs'
+
+Apos a linha if(userAlreadyExists) adicionar a linha: 
+
+    const passwordHash = await hash(password, 8) 
+
+E no const user = UsersReposity.create passar no valor do password o valor do passwordHash ficando assim 
+
+    password: passwordHash 
+
+-> Usando tokenização com JWT para autenticação de usuario 
+
+No terminal instalar: 
+
+- yarn add jsonwebtoken
+- yarn add @types/jsonwebtoken -D
+
+No diretorio services criar o arquivo AuthenticateUserService.ts e inserir as linhas: 
+
+    import { getCustomRepository } from "typeorm"
+    import { UsersRepositories } from "../repositories/UsersRepositories"
+    import { compare } from 'bcryptjs'
+    import { sign } from 'jsonwebtoken'
+
+    interface IAuthenticateRequest {
+        email: string 
+        password: string 
+    }
+
+    class AuthenticateUserService {
+        async execute({ email, password }: IAuthenticateRequest) {
+            const usersRepositories = getCustomRepository(UsersRepositories)
+
+            // verificar se email existe
+            const user = await usersRepositories.findOne({
+                email
+            })
+
+            if(!user) {
+                throw new Error("Email/Passoword incorrect")
+            }
+            // verificar se senha esta correta
+            const passwordMatch = await compare(password, user.password)
+
+            if(!passwordMatch) {
+                throw new Error("Email/Passoword incorrect")
+            }
+
+            // gerar token
+            const token = sign({
+                email: user.email
+            }, "5c995f63ab416be10abeaf9fe9e42891", {
+                subject: user.id, expiresIn: "1d"
+            })
+
+            return token
+
+        }
+    }
+
+    export { AuthenticateUserService }
+
+No diretorio controller criar o arquivo AuthenticateUserController.ts e inserir as linhas: 
+
+    import { Request, Response } from 'express'
+    import { AuthenticateUserService } from "../services/AuthenticateUserService"
+
+    class AuthenticateUserController {
+        async handle(request: Request, response: Response) {
+            const { email, password } = request.body
+
+            const authenticateUserService = new AuthenticateUserService()
+
+            const token = await authenticateUserService.execute({
+                email,
+                password
+            })
+
+            return response.json(token)
+        }
+    }
+
+    export { AuthenticateUserController }
+
+Adicionar esse controller nas rotas, no arquivo routes.ts importar o controller, invocar o controller e chama-lo na rota: 
+
+    import { AuthenticateUserController } from './controllers/AuthenticateUserController'
+    const authenticateUserController = new AuthenticateUserController()
+    router.post('/session', authenticateUserController.handle)
+
+-> Criando a migration compliments 
+
+No termninal rodar o comando: 
+
+- yarn typeorm migration:create -n CreateCompliments
+
+Adicionar as linhas para criação da tabela e as FOREIGN KEYs
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.createTable(
+            new Table({
+                name: "compliments",
+                columns: [
+                    {
+                        name: "id",
+                        type: "uuid",
+                        isPrimary: true
+                    },
+                    {
+                        name: "user_sender",
+                        type: "uuid",
+                    },
+                    {
+                        name: "user_receiver",
+                        type: "uuid"
+                    },
+                    {
+                        name: "tag_id",
+                        type: "uuid"
+                    },
+                    {
+                        name: "message",
+                        type: "varchar"
+                    },
+                    {
+                        name: "created_at",
+                        type: "timestamp",
+                        default: "now()"
+                    }
+                ],
+                foreignKeys: [
+                    {
+                        name: "FKUserSenderCompliments",
+                        referencedTableName: "users",
+                        referencedColumnNames: ["id"],
+                        columnNames: ["user_sender"],
+                        onDelete: "SET NULL",
+                        onUpdate: "SET NULL"
+                    },
+                    {
+                        name: "FKUserReceiverCompliments",
+                        referencedTableName: "users",
+                        referencedColumnNames: ["id"],
+                        columnNames: ["user_receiver"],
+                        onDelete: "SET NULL",
+                        onUpdate: "SET NULL"
+                    },
+                    {
+                        name: "FKTagCompliments",
+                        referencedTableName: "tags",
+                        referencedColumnNames: ["id"],
+                        columnNames: ["tag_id"],
+                        onDelete: "SET NULL",
+                        onUpdate: "SET NULL"
+                    }
+                ]
+            })
+        )
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.dropTable("compliments")
+    }
+
+-> Criando a entity de compliments 
+
+No diretorio entitis criar o arquivo Compliment.ts e inserir as linhas: 
+
+    import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn,} from "typeorm"
+import { v4 as uuid } from "uuid"
+import { Tag } from "./Tag"
+import { User } from "./User"
+
+@Entity("compliments")
+class Compliment {
+    @PrimaryColumn()
+    readonly id: string
+
+    @Column()
+    user_sender: string
+
+    @JoinColumn({ name: "user_sender" })
+    @ManyToOne(() => User)
+    userSender: User
+    
+    @Column()
+    user_receiver: string
+
+    @JoinColumn({ name: "user_receiver" })
+    @ManyToOne(() => User)
+    userReceiver: User
+
+    @Column()
+    tag_id: string
+
+    @JoinColumn({ name: "tag_id" })
+    @ManyToOne(() => Tag)
+    tag: Tag
+
+    @Column()
+    message: string
+    
+    @CreateDateColumn()
+    created_at: Date
+
+    constructor() {
+        if (!this.id) {
+            this.id = uuid()
+        }
+    }
+}
+
+export { Compliment }
+
+-> Criar o repositorio do Compliment 
+
+No diretorio repsitories criar o arquivo ComplimentsRepositories.ts e inserir as linhas: 
+
+    import { EntityRepository, Repository } from "typeorm";
+    import { Compliment } from "../entities/Compliment";
+    import { User } from "../entities/User";
+
+    @EntityRepository(Compliment)
+    class ComplimentsRepositories extends Repository<Compliment> {}
+
+
+
+    export { ComplimentsRepositories }
+
+-> Criar o service do compliments
+
+No diretorio services criar o arquivo CreateComplimentService.ts e inserir as linhas: 
+
+    import { getCustomRepository } from "typeorm"
+    import { ComplimentsRepositories } from "../repositories/ComplimentsRepositories"
+    import { UsersRepositories } from "../repositories/UsersRepositories"
+
+    interface IComplimentRequest {
+        tag_id: string
+        user_sender: string
+        user_receiver: string 
+        message: string
+    }
+
+    class CreateComplimentService {
+        async execute({ tag_id, user_sender, user_receiver, message }: IComplimentRequest) {
+            const complimentsRepositories = getCustomRepository(ComplimentsRepositories)
+            const usersRepositories = getCustomRepository(UsersRepositories)
+
+
+            if(user_sender === user_receiver) {
+                throw new Error("User receiver incorrect")
+            }
+
+            const userAlreadyExists = await usersRepositories.findOne(user_receiver)
+
+            if (!userAlreadyExists) {
+                throw new Error("User receiver already existis")
+            }
+
+            const compliment = complimentsRepositories.create({
+                tag_id,
+                user_receiver,
+                user_sender,
+                message
+            })
+
+            await complimentsRepositories.save(compliment)
+
+            return compliment
+        }
+    }
+
+    export { CreateComplimentService }
+
+-> Criar o controller do compliment
+
+No diretorio controllers criar o arquivo CreateComplimentController.ts e inserir as linhas:
+    
+    import { Request, Response } from 'express'
+    import { CreateComplimentService } from "../services/CreateComplimentService"
+
+    class CreateComplimentController {
+        async handle(request: Request, response: Response) {
+            const { tag_id, user_sender, user_receiver, message } = request.body
+
+            const createComplimentService = new CreateComplimentService()
+
+            const compliment = await createComplimentService.execute({ 
+                tag_id,
+                user_sender, 
+                user_receiver, 
+                message
+            })
+
+            return response.json(compliment)
+        }
+
+    }
+
+    export { CreateComplimentController }
+
+Passar o controller do compliments para as rotas no arquivo routes.ts e inserindo as linhas: 
+
+    import { CreateComplimentController } from './controllers/CreateComplimentController'
+    const createComplementController = new CreateComplimentController()
+    router.post('/compliments', createComplementController.handle)
+
+-> Criar o middleware de autenticação de usuario  
+
+No diretorio de middleware criar o arquivo ensureAuthenticated.ts e inserir as linhas: 
+
+    import { Request, Response, NextFunction } from 'express'
+
+export function ensureAuthenticated(request: Request, response: Response, next: NextFunction) {
+    // ! receber o token
+    const token = request.headers.authorization
+    console.log(token)
+
+    return next()
+
+    // ! Validar se o token esta preenchido
+
+    // ! Validar se o token é valido 
+
+    // ! recuperar informações do usuario
+}
+
+Para testar, no insomnia, na parte de "Auth" escolher a opcao "Bearer token" e passar um token por ele 
+
+No arquivo routes.ts passar esse middleware na rota de tags, antes do middleware de admin, ficando assim 
+
+    router.post('/tags', ensureAuthenticated, ensureAdmin, createTagController.handle)
+
+Para fazer a verificaçãpo se o token é valido e para recuperar informações do usuario, inserir as linhas nos campos corretos: 
+
+    interface IPayLoad {
+    sub: string
+}
+
+    export function ensureAuthenticated(request: Request, response: Response, next: NextFunction) {
+    // ! receber o token
+    const authToken = request.headers.authorization
+    console.log(authToken)
+    
+    // ! Validar se o token esta preenchido
+    if (!authToken) {
+        return response.status(401).end()
+    }
+
+    const [, token] = authToken.split(" ")
+    
+    try {
+        // ! Validar se o token é valido 
+        const { sub } = verify(token, "5c995f63ab416be10abeaf9fe9e42891")
+
+        request.user_id = sub
+         return next()
+    }catch (err){
+        return response.status(400).end()
+    }
+    
+    // ! recuperar informações do usuario
+}
+
+No diretorio src criar o diretorio @types, dentro dele criar o diretorio express e dentro dele criar 
+o arquivo index.d.ts e inserir as linhas: 
+
+    declare namespace Express {
+    export interface Request {
+        user_id: string
+    }
+}
+
+Noa arquivo tsconfig.json descomentar a linha typeroots e inserir em seu array "./src/@types"
+
+No arquivo ensureAdmin.ts apos a linha export function inserir as linhas: 
+
+        const { user_id } = request
+        console.log(user_id)
+
+No arquivo de rotas, passsar o middleware de autenticação na rota de tags ficando assim: 
+
+router.post('/tags', ensureAuthenticated, ensureAdmin, createTagController.handle)
+
+-> Refatorando o codigo de verificação de usuario se é admin 
+
+No arquivo ensureAdmin importar o repositorio de users para capturar o id do usuario: 
+
+    import { Request, Response, NextFunction } from 'express'
+import { getCustomRepository } from 'typeorm'
+import { UsersRepositories } from '../repositories/UsersRepositories'
+
+export async function ensureAdmin(request: Request, response: Response, next: NextFunction) {
+    const { user_id } = request
+
+    const usersRepositories = getCustomRepository(UsersRepositories)
+
+    const { admin } = await usersRepositories.findOne(user_id)
+    
+    if(admin) {
+        return next()
+    } 
+
+    return response.status(401).json({
+        error: "Unauthorized",
+    })
+}
+
+-> Refatorando compliments
+
+No arquivo CreateComplimentsController.ts, abaixo do const { tag_id, user_receiver } adicionar: 
+
+    const { user_id } = request 
+
+E na linha await createComplimentService.execute mudar a linha user_sender para: 
+
+    user_sender: user_id
+
+-> Listando cumpliments de quem esta recebendo
+
+No diretorio services criar o arquivo ListUserReceiveComplimentsServices.ts e inserir as linhas: 
+
+    import { getCustomRepository } from "typeorm"
+    import { ComplimentsRepositories } from "../repositories/ComplimentsRepositories"
+
+    class ListUserReceiveCompliments {
+        async execute(user_id: string) {
+            const complimentsRepositories = getCustomRepository(ComplimentsRepositories)
+
+            const compliments = await complimentsRepositories.find({
+                where: {
+                    user_receiver: user_id
+                }
+            })
+
+            return compliments
+        }
+    }
+
+    export { ListUserReceiveCompliments }
+
+Fazer a mesma coisa para o ListUserSendComplimentService.ts
+
+-> Criando o controller desses dois services 
+
+No diretorio controlllers criar os arquivos ListUserReceiveComplimentsController.ts e ListUserSendComplimentsController.ts 
+e inserir as linhas: (Fazer isso nos dois arquivos apenas alterando o que for necessario)
+
+    import { Request, Response } from "express";
+import { ListUserReceiveComplimentsService } from "../services/ListUserReceiveComplimentsService";
+
+class ListUserReceiveComplimentsController {
+    async handle(request: Request, response: Response) {
+        const { user_id } = request
+
+        const listUserReceiveComplimentsService = new ListUserReceiveComplimentsService()
+
+        const compliments = await listUserReceiveComplimentsService.execute(user_id)
+
+        return response.json(compliments)
+    }
+}
+
+export { ListUserReceiveComplimentsController }
+
+No arquivo de rotas adicionar a rota get para essas duas listagens, assim como a importação ew a invocação 
+
+    import { ListUserSendComplimentsController } from './controllers/ListUserSendComplimentsController'
+    import { ListUserReceiveComplimentsController } from './controllers/ListUserReceiveComplimentsController'
+
+    const listUserSendComplimentsController = new ListUserSendComplimentsController()
+    const listUserReceiveComplimentsController = new ListUserReceiveComplimentsController()
+
+    router.get('/user/compliments/send', ensureAuthenticated, listUserSendComplimentsController.handle)
+    router.get('/user/compliments/receive', ensureAuthenticated, listUserReceiveComplimentsController.handle)
+
+Buscar os relacionamentos entre as entidades: 
+
+Nos arquivo ListUserReceiveCompliment apos a linha where passar a linha relations para buscar 
+outras informações das relacoes ficando assim: 
+
+    relations: ["userSender", "userReceiver", "tag"]
+
+-> Listar as tags da aplicação: 
+
+No diretorio services criar o arquivo ListTagsService.ts e inserir as linhas: 
+
+    import { getCustomRepository } from "typeorm"
+import { TagsRepositories } from "../repositories/TagsRepositories"
+
+
+class ListTagsServices {
+    async execute() {
+        const tagsRepositories = getCustomRepository(TagsRepositories)
+
+        const tags = tagsRepositories.find()
+        
+        return tags
+    }
+}
+
+export { ListTagsServices }
+
+Criar o controller de listar as tags, no diretorio controller criar o arquivo ListTagsController.ts~
+e inserir as linhas: 
+
+    import { getCustomRepository } from "typeorm"
+    import { TagsRepositories } from "../repositories/TagsRepositories"
+
+
+    class ListTagsService {
+        async execute() {
+            const tagsRepositories = getCustomRepository(TagsRepositories)
+
+            const tags = tagsRepositories.find()
+            
+            return response.json(tags)
+        }
+    }
+
+    export { ListTagsService }
+
+Importar, invocar e colocar o controller na rota 
+
+    import { ListTagsController } from './controllers/ListTagsController'
+    const listTagsController = new ListTagsController()
+    router.get('/tags', ensureAuthenticated, listTagsController.handle)
+
+-> Adicionando informações a mais que nao estao nas listagens
+
+No terminal instalar a biblioteca: 
+
+- yarn add class-transformer
+
+No arquivo de entidade das tags adicionar as informações ficando assim: 
+
+    @Entity("tags")
+class Tag {
+    @PrimaryColumn()
+    readonly id: string
+
+    @Column()
+    name: string
+    
+    @CreateDateColumn()
+    created_at: Date
+    
+    @UpdateDateColumn()
+    updated_at: Date
+
+    @Expose({ name: "nameCustom" })
+    nameCustom(): string {
+        return `#${this.name}`
+    }
+
+    constructor() {
+        if(!this.id) {
+            this.id = uuid()
+        }
+    }
+
+}
+
+No arquivo de service do listTags, alterar o return para: 
+
+        return classToPlain(tags)
+
+-> Listar os usuarios 
+
+No diretorio services criar o arquivo ListUsersService.ts e inserir as linhas: 
+
+    import { getCustomRepository } from "typeorm"
+    import { UsersRepositories } from "../repositories/UsersRepositories"
+
+    class ListUsersServices {
+        async execute() {
+            const usersRepositories = getCustomRepository(UsersRepositories)
+
+            const users = await usersRepositories.find()
+
+            return users
+        }
+    }
+
+    export { ListUsersServices }
+
+Criar o controller do listUsers e inserir as linhas: 
+
+-> Usar o class trasform para nao mostrar as senhas 
+
+No arquivo entity de users, importar o class transform e na linha de password colocar exclude
+ficando assim 
+
+    @Exclude()
+    @Column()
+    password: string
+
+No arquivo service do users alterar o return para: 
+
+    return classToPlain(users)
+
+Adicionando cors para que outras aplicações possam acessar o projeto: 
+
+No terminal instalar: 
+
+- yarn add cors
