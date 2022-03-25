@@ -585,6 +585,8 @@ export function AuthProvider(props: AuthProvider) {
         // salvando o codigo de autenticação no local storage do navegador
         localStorage.setItem('@dowhile:token', token)
 
+        api.defaults.headers.common.authorization = `Bearer ${token}`
+
         setUser(user)
     }
 
@@ -633,3 +635,350 @@ export function LoginBox() {
 ```
 ### Manter as infos do usuario depois do refresh da pagina
 
+- Antes do useEfect que captura o codigo de autenticação inserir outro useEffect que resgate os dados do usuario para mante-los salvo
+
+```tsx
+    useEffect(() => {
+        const token = localStorage.getItem('@dowhile:token')
+
+        if (token) {
+            api.defaults.headers.common.authorization = `Bearer ${token}`
+
+            api.get<User>('profile').then(response => {
+                setUser(response.data)
+            })
+        }
+    }, [])
+```
+
+## Função de logout do usuario 
+
+- Adicionar tipagem para a função no AuthContextData
+
+- Criar a função antes do useEffect passando como nulo o estado e removendo a variavel token do storage de navegação 
+
+- Passar a função no Provider
+
+```tsx
+type AuthContextData = {
+    user: User | null;
+    signInUrl: string;
+    signOut: () => void;
+}
+
+function signOut() {
+    setUser(null)
+    localStorage.remove('@dowhile:token')
+}
+
+<AuthContext.Provider value={{ signInUrl, user, signOut }}>
+    {props.children}
+</AuthContext.Provider>
+```
+
+## Contruindo o messageForm 
+
+- No component messageForm inserir os codigos da criação do componente e sua estilização
+
+```tsx
+import { useContext } from "react"
+import { AuthContext } from "../../contexts/auth"
+
+import { VscGithubInverted, VscSignIn } from "react-icons/vsc"
+import styles from './styles.module.scss'
+
+export function SendMessageForm() {
+    const { user, signOut } = useContext(AuthContext)
+
+    return(
+        <div className={styles.sendMessageFormWrapper}>
+            <button onClick={signOut} className={styles.signOutButton}>
+                <VscSignIn size="32" />
+            </button>
+
+            <header className={styles.userInformation}>
+                <div className={styles.userImage}>
+                    <img src={user?.avatar_url} alt={user?.name} />
+                </div>
+                <strong className={styles.userName}>{user?.name}</strong>
+                <span className={styles.userGithub}>
+                    <VscGithubInverted size="16"/>
+                    {user?.login}
+                </span>
+            </header>
+
+            <form className={styles.sendMessageForm}>
+                <label htmlFor="message">Mensagem</label>
+                <textarea 
+                    name="message"
+                    id="message"
+                    placeholder="Qual a sua expectativa para o evento"
+                />
+
+                    <button type="submit">Enviar mensagem</button>
+            </form>
+        </div>
+    )
+}
+```
+```scss
+.sendMessageFormWrapper {
+    background: #1b1b1f;
+    padding: 24px;
+    align-self: center;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+
+    position: relative;
+}
+
+.signOutButton {
+    background: transparent;
+    border: 0;
+    color: #c4c4cc;
+
+    position: absolute; 
+    left: 24px;
+    top: 24px;
+
+    cursor: pointer;
+
+    &:hover {
+        filter: brightness(0.9);
+    }
+}
+
+.userInformation {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    .userImage {
+        padding: 3px;
+        background: linear-gradient(100deg, #ff008e 0%, #ffcd1e 100%);
+        border-radius: 50%;
+        line-height: 0;
+
+        img {
+            width: 94px;
+            height: 94px;
+            border-radius: 50%;
+            border: 6px solid #121214;
+        }
+    }
+
+    .userName {
+        font-size: 24px;
+        line-height: 30px;
+        margin-top: 16px;
+    }
+
+    .userGithub {
+        display: flex;
+        align-items: center;
+
+        margin-top: 8px;
+        color: #c4c4cc;
+
+        svg {
+            margin-right: 8px;
+        }
+    }
+}
+
+.sendMessageForm {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    margin-top: 48px;
+
+    background: #202024;
+
+    label {
+        padding: 18px 24px;
+        font-size: 20px;
+        background: #29292e;
+        font-weight: bold;
+        text-align: left;
+    }
+
+    textarea {
+        background: transparent;
+        border: 0;
+        padding: 24px;
+        resize: none;
+        height: 160px;
+        color: #e1e1e6;
+        font-size: 16px;
+        line-height: 24px;
+
+        &:focus {
+            outline: 0; 
+        }
+
+        &::placeholder {
+            color: #8d8d99;
+        }
+    }
+
+    button {
+        border: none;
+        border-radius: 5px;
+        align-self: flex-end;
+        background: #ff008e;
+        margin: 24px;
+        cursor: pointer;
+        padding: 0 32px;
+        height: 40px;
+        color: #fff;
+        font-size: 14px;
+        font-weight: bold;
+        text-transform: uppercase;
+        text-decoration: none;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &:hover {
+            filter: brightness(0.9)
+        }
+    }
+}
+```
+
+- No App.tsx, colocar o if que determinara se aparecera o botao de login caso o user nao esteja logado ou o formulario de criação de mensagem caso esteja
+
+```tsx
+export function App() {
+  const { user } = useContext(AuthContext)
+  
+  return (
+    <main className={styles.contentWhrapper} >
+      <MessageList />
+      {/*Se o usuario estiver logado, aparecera o componente de formuario da mensagem, caso nao,
+      aparecera o componente de login*/}
+      {!!user ? <SendMessageForm /> : <LoginBox />}
+    </main>
+  )
+}
+```
+
+## Funcionalidade envio de mensagem 
+
+- No component MessageForm usar useState para armazenar a mensagem do form e suas mudanças
+
+```tsx
+    const [message, setMessage] = useState('')
+
+    async function handleSendMessage(event: FormEvent) {
+        event.preventDefault()
+
+        if (!message.trim()) {
+            return
+        }
+
+        await api.post('messages', { message })
+
+        setMessage('')
+    }
+
+    <form onSubmit={handleSendMessage} className={styles.sendMessageForm}>
+                <label htmlFor="message">Mensagem</label>
+                <textarea 
+                    name="message"
+                    id="message"
+                    placeholder="Qual a sua expectativa para o evento"
+                    onChange={event => setMessage(event.target.value)}
+                    value={message}
+                />
+
+                    <button type="submit">Enviar mensagem</button>
+            </form>
+```
+
+## Socket.io para atualização das mensagens em tempo real
+
+- No terminal instalar socket.io client 
+
+```bash
+yarn add socket.io-client
+```
+
+- No component MessageList, importar o io do socket.io. Invocar o io na variavel 
+
+```tsx
+import { useEffect, useState } from 'react'
+import { api } from '../../services/api'
+
+import io from 'socket.io-client'
+
+import styles from './styles.module.scss'
+import logoImg from '../../assets/logo.svg'
+
+type Message = {
+    id: string;
+    text: string;
+    user: {
+        name: string;
+        avatar_url: string
+    }
+}
+
+const messageQueue: Message[] = []
+
+const socket = io('http://localhost:4000')
+
+socket.on('new_message', (newMessage: Message) => {
+    messageQueue.push(newMessage)
+})
+
+export function MessageList() {
+    // atualização do estado das listas de mensagens
+    const [messages, setMessages] = useState<Message[]>([])
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            if (messageQueue.length > 0) {
+                setMessages(prevState => [
+                    messageQueue[0],
+                    prevState[0],
+                    prevState[1],
+                ].filter(Boolean))
+
+                messageQueue.shift()
+            }
+        }, 3000)
+    }, [])
+
+    // chamando a api com o useEffect
+    useEffect(() => {
+        api.get('messages/last3').then(response => {
+            setMessages(response.data)
+        })
+    }, [])
+    return(
+        <div className={styles.messageListWrapper}>
+            <img src={logoImg} alt="DoWhile 2021" />
+            <ul className={styles.messageList}>
+                {messages.map(message => {
+                    return(
+                        <li  key={message.id} className={styles.message}>
+                            <p className={styles.messageContent}>{message.text}</p>
+                            <div className={styles.messageUser}>
+                                <div className={styles.userImage}>
+                                    <img src={message.user.avatar_url} alt={message.user.name} />
+                                </div>
+                                <span>{message.user.name}</span> 
+                            </div>
+                        </li>
+                    )
+                })}
+            </ul>
+        </div>
+    )
+}
+```
